@@ -1,0 +1,144 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en"
+	  xmlns:tal="http://xml.zope.org/namespaces/tal"
+	  xmlns:metal="http://xml.zope.org/namespaces/metal"
+	  xmlns:i18n="http://xml.zope.org/namespaces/i18n"
+	  lang="en"
+	  metal:use-macro="context/main_template/macros/master"
+	  i18n:domain="plone">
+
+<body>
+
+<h1 id="parent-fieldname-title" class="documentFirstHeading">Course Offerings</h1>
+<!--
+<metal:block fill-slot="javascript_head_slot">
+-->
+<style>
+	.displayNone{
+		display: none;
+	}
+</style>
+<script type="text/javascript" src="https://www.google.com/jsapi"></script>
+<script>
+
+	//Url: http://googledrive.com/host/0B2Wuu3xuV2GHT3ZGQUtOY2tOUjQ
+
+	//Google Charts: https://developers.google.com/chart/interactive/docs/quick_start
+	//Google Charts - Tables: https://developers.google.com/chart/interactive/docs/gallery/table
+	//Google Charts - Controls: https://developers.google.com/chart/interactive/docs/gallery/controls?hl=en
+	//Google Charts - Control Types: http://battlehorse.github.io/google-charts-controls-gallery/
+	google.load('visualization', '1', {packages: ['table', 'controls']});
+	google.setOnLoadCallback(initialize);
+
+	var departments = ['ACCT', 'BUSINESS', 'ECON', 'FINANCE', 'MHR', 'INFO SYS', 'MARKET', 'SCM', 'SMGT'];
+
+	function initialize() {
+		var query = new google.visualization.Query('https://docs.google.com/spreadsheets/d/1MGUO0LclxiyWJPVVdChZfCKCCI9Pt-VdXJqZ-hZyXZs/gviz/tq?gid=683663796&headers=1');
+
+		//Querying: https://developers.google.com/chart/interactive/docs/querylanguage?hl=en
+		var queryString = 'select * where ';
+		for (var i = 0; i < departments.length; i++)
+		{
+			queryString += 'B = "' + departments[i] + '"';
+			if (i == departments.length -2) break;
+			queryString += ' or ';
+		}
+		queryString += ' order by B, D'; //order by department, catalog
+		query.setQuery(queryString);
+
+		query.send(handleQueryResponse);
+	}
+
+	function handleQueryResponse(response) {
+		if (response.isError()) {
+			alert('Error in query: ' + response.getMessage() + ' ' + response.getDetailedMessage());
+			return;
+		}
+
+		var data = response.getDataTable();
+
+		console.log(JSON.parse(data.toJSON()));
+
+		departmentFilter = new google.visualization.ControlWrapper({
+			'controlType': 'CategoryFilter',
+			containerId: 'departmentFilter',
+			'dataTable': data,
+			'options': {
+				'filterColumnLabel': 'Department',
+				'values': departments,
+				'ui': {
+					'allowMultiple': false
+				}
+			}
+		});
+
+		programmaticSlider = new google.visualization.ControlWrapper({
+			'controlType': 'NumberRangeFilter',
+			'containerId': 'catalogSlider',
+			'options': {
+				minValue: 100,
+				maxValue: 799,
+				filterColumnLabel: 'Catalog' //Catlog column in spreadsheet needs to be in number format
+			},
+			ui:{
+				cssClass: 'displayNone'
+			}
+		});
+
+		catalogFilter = new google.visualization.ControlWrapper({
+			'controlType': 'CategoryFilter',
+			containerId: 'catalogFilter',
+			dataTable: data,
+			'options': {
+				filterColumnLabel: 'Catalog',
+				'values': ['100', '200', '300', '400', '700'],
+				'ui': {
+					'allowMultiple': false
+				}
+			}
+		});
+		catalogFilter.draw();
+
+		//Google Charts - Control Events: http://stackoverflow.com/questions/18264767/google-chart-dashboard-control-event-handler
+		google.visualization.events.addListener(catalogFilter, 'statechange', function() {
+			var selectedValue = Number(catalogFilter.getState().selectedValues[0]);
+			programmaticSlider.setState({lowValue: selectedValue, highValue: (selectedValue + 99)});
+			programmaticSlider.draw();
+		});
+
+		var table = new google.visualization.ChartWrapper({
+			chartType: 'Table',
+			containerId: 'dataTable',
+			options: {'title': 'Course Offerings'}
+		});
+
+		var dashboard = new google.visualization.Dashboard(document.getElementById('dashboard'));
+		dashboard.bind([departmentFilter, programmaticSlider], table);
+		dashboard.draw(data);
+
+		//Hiding the button at first, and then displaying it when the table is drawn.
+		document.getElementById("resetControlsButton").style.display = "block";
+	}
+
+	function resetControls(){
+		departmentFilter.getControl().resetControl();
+		programmaticSlider.setState({lowValue: programmaticSlider.getOptions().minValue, highValue: programmaticSlider.getOptions().maxValue});
+		programmaticSlider.draw();
+		catalogFilter.getControl().resetControl();
+	}
+</script>
+
+<!--
+</metal:block>
+-->
+
+	<table id="jqGrid"></table>
+	<div id="jqGridPager" style=""></div>
+	<div id="dashboard">
+		<div id="departmentFilter"></div>
+		<div id="catalogFilter"></div>
+		<div id="catalogSlider" class="displayNone"></div>
+		<button id="resetControlsButton" onclick="resetControls()" class="displayNone">Reset</button>
+		<div id="dataTable"></div>
+	</div>
+</body>
+</html>
